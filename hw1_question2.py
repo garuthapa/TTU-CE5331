@@ -19,7 +19,7 @@ def analytical_sol(x, U, G, L, f0, fL):
     return f0 + (fL - f0) * ((np.exp((U/G)*x) - 1) / (np.exp((U/G)*L) - 1))
 
 # TDMA solving function
-def tdma_solver(a_minus, a_0, a_plus, b):
+def tdma_solver(a_sub, a_0, a_add, b):
     n = len(b)
     a_str = np.zeros(n)
     b_str = np.zeros(n)
@@ -29,13 +29,13 @@ def tdma_solver(a_minus, a_0, a_plus, b):
     a_str[0] = a_0[0]
     b_str[0] = b[0]
     for i in range(1, n):
-        div = a_minus[i] / a_str[i-1]
-        a_str[i] = a_0[i] - div * a_plus[i-1]
+        div = a_sub[i] / a_str[i-1]
+        a_str[i] = a_0[i] - div * a_add[i-1]
         b_str[i] = b[i] - div * b_str[i-1]
     # Step 2: Backward Substitution 
     f[n-1] = b_str[n-1] / a_str[n-1]
     for i in range(n - 2, -1, -1):
-        f[i] = (b_str[i] - a_plus[i] * f[i+1]) / a_str[i]
+        f[i] = (b_str[i] - a_add[i] * f[i+1]) / a_str[i]
     return f
 
 # Collectors for each plots (errors and h_values for error plot, elpsed_times for tiem vs N plot)
@@ -56,20 +56,20 @@ for N in N_values:
     interior_nodes = N - 1
     
     # Interior coefficients using TDMA
-    a_minus = np.full(interior_nodes, (G / h**2) + (U / (2*h)))
+    a_sub = np.full(interior_nodes, (G / h**2) + (U / (2*h)))
     a_0 = np.full(interior_nodes, -(2 * G / h**2))
-    a_plus = np.full(interior_nodes, (G / h**2) - (U / (2*h)))
+    a_add = np.full(interior_nodes, (G / h**2) - (U / (2*h)))
 
     # RHS terms for b is 0 for all nodes i= 1 to N-1 as Q=0 in question but since, f(0)=1 and f(L)=0 are boundary terms:
     # a_minus[0] terms with f(0) goes to RHS at node i=1 and a_plus[-1] terms with f(L) goes to RHS at node i= N-1.
     b = np.zeros(N-1)
     b = np.zeros(N-1)
-    b[0] -= a_minus[0] * f0
-    b[-1] -= a_plus[-1] * fL
+    b[0] -= a_sub[0] * f0
+    b[-1] -= a_add[-1] * fL
 
     # Recording time for TDMA solver to plot time vs N graph
     start_time = time.perf_counter()
-    f_h = tdma_solver(a_minus, a_0, a_plus, b)
+    f_h = tdma_solver(a_sub, a_0, a_add, b)
     elapsed_time = time.perf_counter() - start_time
     elapsed_times.append(elapsed_time)
 

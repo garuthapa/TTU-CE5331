@@ -25,7 +25,7 @@ def analytical_Qequal_0point1x(x):
     return -1 + np.sqrt(4 - (8/3)*x - (x**3)/3)
 
 # TDMA solver function using code from Qn.2
-def tdma_solver(a_minus, a_0, a_plus, b):
+def tdma_solver(a_sub, a_0, a_add, b):
     n = len(b)
     a_str = np.zeros(n)
     b_str = np.zeros(n)
@@ -35,13 +35,13 @@ def tdma_solver(a_minus, a_0, a_plus, b):
     a_str[0] = a_0[0]
     b_str[0] = b[0]
     for i in range(1, n):
-        div = a_minus[i] / a_str[i-1]
-        a_str[i] = a_0[i] - div * a_plus[i-1]
+        div = a_sub[i] / a_str[i-1]
+        a_str[i] = a_0[i] - div * a_add[i-1]
         b_str[i] = b[i] - div * b_str[i-1]
     # Step 2: Backward Substitution 
     f[n-1] = b_str[n-1] / a_str[n-1]
     for i in range(n - 2, -1, -1):
-        f[i] = (b_str[i] - a_plus[i] * f[i+1]) / a_str[i]
+        f[i] = (b_str[i] - a_add[i] * f[i+1]) / a_str[i]
     return f
 
 #defining non-linear diffusion G(f)= 0.1+0.1f
@@ -65,24 +65,32 @@ def solve_nonlinear(Q_func, G, N):
         f_old = f_current.copy()
         # Recalculating G based on the previous iteration's solution
         G_at_nodes = G(f_current)
+        interior_node = N - 1
 
-        # Using half-node values for G to get coefficients related to G for finding coefficients a_minus, a_0, and a_plus
-        G_avg_minus = (G_at_nodes[0:-2] + G_at_nodes[1:-1]) / 2.0
-        G_avg_plus = (G_at_nodes[1:-1] + G_at_nodes[2:]) / 2.0
+        # Initialize the arrays for the half-node values of G
+        G_avg_sub = np.zeros(interior_node)
+        G_avg_add = np.zeros(interior_node)
+
+        for j in range(interior_node):
+            # Calculate G at the i-1/2 interface 
+            G_avg_sub[j] = (G_at_nodes[j] + G_at_nodes[j+1]) / 2.0
+    
+            # Calculate G at the i+1/2 interface 
+            G_avg_add[j] = (G_at_nodes[j+1] + G_at_nodes[j+2]) / 2.0
             
-        a_minus = G_avg_minus/ (h**2)
-        a_plus = G_avg_plus/ (h**2)
-        a_0 = -(a_minus + a_plus)
+        a_sub = G_avg_sub/ (h**2)
+        a_add = G_avg_add/ (h**2)
+        a_0 = -(a_sub + a_add)
         
         # The right-hand side is b=-Q(x)
         b = -Q_func(x_nodes[1:-1])
         
         # Using boundary conditions: f(0)=1 and f(L)=0
-        b[0] -= a_minus[0] * f0
-        b[-1] -= a_plus[-1] * fL
+        b[0] -= a_sub[0] * f0
+        b[-1] -= a_add[-1] * fL
         
         # Solving linear system for the new solution
-        f_x = tdma_solver(a_minus, a_0, a_plus, b)
+        f_x = tdma_solver(a_sub, a_0, a_add, b)
 
         # Updating solution vector with boundary conditions
         f_current = np.concatenate(([f0], f_x, [fL]))
